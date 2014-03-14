@@ -13,14 +13,11 @@ require "rubygems"
 require "bundler"
 require "bundler/setup"
 
-require "fakefs/safe"
 require "machinist/sequel"
 require "machinist/object"
+require "fakefs/safe"
 require "rack/test"
-require "timecop"
-# require 'pry'
 
-require "steno"
 require "webmock/rspec"
 require "cf_message_bus/mock_message_bus"
 
@@ -636,6 +633,13 @@ end
 
 module CcGhost
   def self.install
+    app = Rack::Test::Session.new(Rack::MockSession.new(CcGhost.app))
+    WebMock.stub_request(:any, %r{cc-ghost*}).to_return do |request|
+      #convert Authorization header to Rack expected var HTTP_AUTHORIZATION
+      headers = {'HTTP_AUTHORIZATION' => request.headers.delete('Authorization')}.merge(request.headers)
+      response = app.send(request.method, request.uri.path, request.body, headers)
+      {body: response.body, headers: response.headers, status: response.status}
+    end
   end
 
   def self.app
