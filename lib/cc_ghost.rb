@@ -32,16 +32,6 @@ module VCAP::CloudController
   class SpecEnvironment
     def initialize
       ENV["CC_TEST"] = "true"
-      # FileUtils.mkdir_p(artifacts_dir)
-
-      # if File.exist?(log_filename) && File.size(log_filename) > MAX_LOG_FILE_SIZE_IN_BYTES
-        # FileUtils.rm_f(log_filename)
-      # end
-
-      # StenoConfigurer.new(level: "debug2").configure do |steno_config_hash|
-        # steno_config_hash[:sinks] = [Steno::Sink::IO.for_file(log_filename)]
-      # end
-
       reset_database
       VCAP::CloudController::DB.load_models(config.fetch(:db), db_logger)
       VCAP::CloudController::Config.run_initializers(config)
@@ -389,135 +379,6 @@ module VCAP::CloudController::SpecHelper
     end
   end
 
-  # @param [Hash] expecteds key-value pairs of messages and responses
-  # @return [#==]
-  RSpec::Matchers.define(:respond_with) do |expecteds|
-    match do |actual|
-      expecteds.all? do |message, matcher|
-        if matcher.respond_to?(:matches?)
-          matcher.matches?(actual.public_send(message))
-        else
-          matcher == actual.public_send(message)
-        end
-      end
-    end
-  end
-
-  RSpec::Matchers.define :json_match do |matcher|
-    # RSpect matcher?
-    if matcher.respond_to?(:matches?)
-      match do |json|
-        actual = Yajl::Parser.parse(json)
-        matcher.matches?(actual)
-      end
-      # regular values or RSpec Mocks argument matchers
-    else
-      match do |json|
-        actual = Yajl::Parser.parse(json)
-        matcher == actual
-      end
-    end
-  end
-
-  shared_examples "a vcap rest error response" do |description_match|
-    let(:decoded_response) { Yajl::Parser.parse(last_response.body) }
-
-    it "should contain a numeric code" do
-      decoded_response["code"].should_not be_nil
-      decoded_response["code"].should be_a_kind_of(Fixnum)
-    end
-
-    it "should contain a description" do
-      decoded_response["description"].should_not be_nil
-      decoded_response["description"].should be_a_kind_of(String)
-    end
-
-    if description_match
-      it "should contain a description that matches #{description_match}" do
-        decoded_response["description"].should match(/#{description_match}/)
-      end
-    end
-  end
-
-  shared_context "resource pool" do
-    before(:all) do
-      num_dirs = 3
-      num_unique_allowed_files_per_dir = 7
-      file_duplication_factor = 2
-      @max_file_size = 1098 # this is arbitrary
-
-      @total_allowed_files =
-        num_dirs * num_unique_allowed_files_per_dir * file_duplication_factor
-
-      @dummy_descriptor = {"sha1" => Digest::SHA1.hexdigest("abc"), "size" => 1}
-      @tmpdir = Dir.mktmpdir
-
-      @descriptors = []
-      num_dirs.times do
-        dirname = SecureRandom.uuid
-        Dir.mkdir("#{@tmpdir}/#{dirname}")
-        num_unique_allowed_files_per_dir.times do
-          basename = SecureRandom.uuid
-          path = "#{@tmpdir}/#{dirname}/#{basename}"
-          contents = SecureRandom.uuid
-
-          descriptor = {
-            "sha1" => Digest::SHA1.hexdigest(contents),
-            "size" => contents.length
-          }
-          @descriptors << descriptor
-
-          file_duplication_factor.times do |i|
-            File.open("#{path}-#{i}", "w") do |f|
-              f.write contents
-            end
-          end
-
-          File.open("#{path}-not-allowed", "w") do |f|
-            f.write "A" * @max_file_size
-          end
-        end
-      end
-
-      Fog.mock!
-    end
-
-    let(:resource_pool_config) do
-      {
-        :maximum_size => @max_file_size,
-        :resource_directory_key => "spec-cc-resources",
-        :fog_connection => {
-          :provider => "AWS",
-          :aws_access_key_id => "fake_aws_key_id",
-          :aws_secret_access_key => "fake_secret_access_key",
-        }
-      }
-    end
-
-    before do
-      @resource_pool = VCAP::CloudController::ResourcePool.new(
-        :resource_pool => resource_pool_config
-      )
-    end
-
-    after(:all) do
-      FileUtils.rm_rf(@tmpdir)
-    end
-  end
-
-  shared_context "with valid resource in resource pool" do
-    let(:valid_resource) do
-      pending("Deprecated")
-      file = Tempfile.new("mytemp")
-      file.write("A" * 1024)
-      file.close
-
-      VCAP::CloudController::ResourcePool.instance.add_path(file.path)
-      file_sha1 = Digest::SHA1.file(file.path).hexdigest
-
-      {"fn" => "file/path", "sha1" => file_sha1, "size" => 2048}
-    end
-  end
 end
 
 class CF::UAA::Misc
@@ -534,94 +395,10 @@ class Shim
   include VCAP::CloudController::SpecHelper
   include VCAP::CloudController::BrokerApiHelper
   include ModelCreation
-  include ModelCreation
-  # include ServicesHelpers, services: true
   include ModelHelpers
   include TempFileCreator
   include ControllerHelpers
 end
-
-# RSpec.configure do |rspec_config|
-  # def rspec_config.escaped_path(*parts)
-    # Regexp.compile(parts.join('[\\\/]'))
-  # end
-
-  # rspec_config.treat_symbols_as_metadata_keys_with_true_values = true
-
-  # rspec_config.include Rack::Test::Methods
-  # rspec_config.include VCAP::CloudController
-  # rspec_config.include VCAP::CloudController::SpecHelper
-  # rspec_config.include VCAP::CloudController::BrokerApiHelper
-  # rspec_config.include ModelCreation
-  # rspec_config.extend ModelCreation
-  # rspec_config.include ServicesHelpers, services: true
-  # rspec_config.include ModelHelpers
-  # rspec_config.include TempFileCreator
-
-  # rspec_config.after do |example|
-    # example.delete_created_temp_files
-  # end
-
-  # rspec_config.include ControllerHelpers, type: :controller, :example_group => {
-    # :file_path => rspec_config.escaped_path(%w[spec controllers])
-  # }
-
-  # rspec_config.include ControllerHelpers, type: :api, :example_group => {
-    # :file_path => rspec_config.escaped_path(%w[spec api])
-  # }
-
-  # rspec_config.include ControllerHelpers, type: :acceptance, :example_group => {
-    # :file_path => rspec_config.escaped_path(%w[spec acceptance])
-  # }
-
-  # rspec_config.include ApiDsl, type: :api, :example_group => {
-    # :file_path => rspec_config.escaped_path(%w[spec api])
-  # }
-
-  # rspec_config.before :all do
-    # VCAP::CloudController::SecurityContext.clear
-    # @old_before_all_config = configure
-    # RspecApiDocumentation.configure do |c|
-      # c.format = [:html, :json]
-      # c.api_name = "Cloud Foundry API"
-      # c.template_path = "spec/api/documentation/templates"
-      # c.curl_host = "https://api.[your-domain.com]"
-      # c.app = Struct.new(:config) do
-        # # generate app() method for rack::test to use
-        # include ::ControllerHelpers
-      # end.new(config).app
-    # end
-  # end
-
-  # rspec_config.after :all do
-    # config_override(@old_before_all_config)
-  # end
-
-  # rspec_config.before :each do
-    # Fog::Mock.reset
-    # Sequel::Deprecation.output = StringIO.new
-    # Sequel::Deprecation.backtrace_filter = 5
-  # end
-
-  # rspec_config.after :each do
-    # expect(Sequel::Deprecation.output.string).to eq ''
-    # Sequel::Deprecation.output.close unless Sequel::Deprecation.output.closed?
-  # end
-
-  # rspec_config.around :each do |example|
-    # if example.metadata.to_s.include? "non_transactional"
-      # begin
-        # example.run
-      # ensure
-        # $spec_env.reset_database_with_seeds
-      # end
-    # else
-      # Sequel::Model.db.transaction(rollback: :always, savepoint: true) do
-        # example.run
-      # end
-    # end
-  # end
-# end
 
 # Ensures that entries are not returned ordered by the id field by
 # default. Breaks the tests (deliberately) unless we order by id
