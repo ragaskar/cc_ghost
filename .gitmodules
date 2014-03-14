@@ -1,0 +1,15 @@
+[submodule "vendor/cloud_controller_ng"]
+	path = vendor/cloud_controller_ng
+	url = https://github.com/cloudfoundry/cloud_controller_ng.git
+[submodule "vendor/vcap-concurrency"]
+	path = vendor/vcap-concurrency
+	url = https://github.com/cloudfoundry/vcap-concurrency.git
+[submodule "vendor/cf-uaa-lib"]
+	path = vendor/cf-uaa-lib
+	url = https://github.com/cloudfoundry/cf-uaa-lib.git
+[submodule "vendor/cf-message-bus"]
+	path = vendor/cf-message-bus
+	url = https://github.com/cloudfoundry/cf-message-bus.git
+[submodule "vendor/cf-registrar"]
+	path = vendor/cf-registrar
+	url = https://github.com/cloudfoundry/cf-registrar.git
