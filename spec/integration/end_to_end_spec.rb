@@ -24,8 +24,8 @@ describe "end to end" do
   end
 
   it 'should be able to return data' do
-    ghostroller = CcGhost::Ghostroller.new
-    ghostroller.install
+    CcGhost::Ghostroller.install
+    ghostroller = CcGhost::Ghostroller.get
     config = ghostroller.config
     user = ghostroller.user
     auth_token = TokenEncoder.new(config).token_for(user)
